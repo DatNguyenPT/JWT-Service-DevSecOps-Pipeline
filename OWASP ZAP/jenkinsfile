@@ -1,0 +1,121 @@
+pipeline {
+    agent any
+    parameters {
+        choice(
+            name: 'SCAN_TYPE', 
+            choices: ['Baseline', 'APIS', 'Full'],
+            description: 'Type of scan to perform inside the container'
+        )
+        string(
+            name: 'TARGET', 
+            defaultValue: 'http://44.193.189.5:8081/v3/api-docs', 
+            description: 'Target OpenAPI JSON URL to scan'
+        )
+        booleanParam(
+            name: 'GENERATE_REPORT', 
+            defaultValue: true, 
+            description: 'Generate report after scan'
+        )
+    }
+    stages {
+        stage('Pipeline Info') {
+            steps {
+                script {
+                    echo '<-- Parameter Initialization -->'
+                    echo """
+                         The current parameters are:
+                             Scan Type: ${params.SCAN_TYPE}
+                             Target: ${params.TARGET}
+                             Generate Report: ${params.GENERATE_REPORT}
+                         """
+                }
+            }
+        }
+
+        stage('Setting up OWASP ZAP Docker container') {
+            steps {
+                script {
+                    withDockerRegistry([credentialsId: 'docker']) {
+                        sh 'docker pull ghcr.io/zaproxy/zaproxy:stable'
+                        sh 'docker run -dt --name owasp ghcr.io/zaproxy/zaproxy:stable /bin/bash'
+                    }
+                }
+            }
+        }
+
+        stage('Prepare Work Directory') {
+            when {
+                expression { params.GENERATE_REPORT }
+            }
+            steps {
+                sh 'docker exec owasp mkdir -p /zap/wrk'
+            }
+        }
+
+        stage('Scanning Target on OWASP ZAP Container') {
+            steps {
+                script {
+                    def scanType = params.SCAN_TYPE
+                    def target = params.TARGET
+                    echo "Scanning target: $target using $scanType scan"
+                    
+                    def zapCommand = ''
+                    if (scanType == 'Baseline') {
+                        zapCommand = "zap-baseline.py -t $target -r /zap/wrk/report.html -I"
+                    } else if (scanType == 'APIS') {
+                        zapCommand = "zap-api-scan.py -t $target -f openapi -r /zap/wrk/report.html -I"
+                    } else if (scanType == 'Full') {
+                        zapCommand = "zap-full-scan.py -t $target -r /zap/wrk/report.html -I"
+                    } else {
+                        error 'Invalid scan type selected'
+                    }
+                    
+                    sh "docker exec owasp ${zapCommand}"
+                }
+            }
+        }
+
+        stage('Copy Report to Workspace') {
+            when {
+                expression { params.GENERATE_REPORT }
+            }
+            steps {
+                script {
+                    def workspacePath = sh(script: 'echo $WORKSPACE', returnStdout: true).trim()
+                    sh "docker cp owasp:/zap/wrk/report.html \"${workspacePath}/report.html\""
+                }
+            }
+        }
+
+        stage('Send Report to Telegram') {
+            when {
+                expression { params.GENERATE_REPORT }
+            }
+            steps {
+                script {
+                    withCredentials([
+                        string(credentialsId: 'telegram_chat_id', variable: 'CHAT_ID'),
+                        string(credentialsId: 'telegram_bot_id', variable: 'BOT_ID')
+                    ]) {
+                        def workspacePath = sh(script: 'echo $WORKSPACE', returnStdout: true).trim()
+                        sh """
+                        curl -X POST -H "Content-Type: application/json" \
+                        -d '{"chat_id": "'${CHAT_ID}'", "text": "[✅SUCCESS] OWASP ZAP Scan Completed 🎉", "disable_notification": false}' \
+                        "https://api.telegram.org/bot${BOT_ID}/sendMessage"
+                        
+                        curl -F chat_id=${CHAT_ID} -F document=@\"${workspacePath}/report.html\" \
+                        "https://api.telegram.org/bot${BOT_ID}/sendDocument"
+                        """
+                    }
+                }
+            }
+        }
+    }
+    post {
+        always {
+            echo 'Cleaning up: Stopping and removing OWASP ZAP container'
+            sh 'docker stop owasp && docker rm owasp'
+            cleanWs()
+        }
+    }
+}

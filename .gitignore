@@ -1,0 +1,54 @@
+# ================================
+# 🔹 Terraform-related files
+# ================================
+**/.terraform/            # Ignore Terraform working directory
+**/.terraform.lock.hcl    # Ignore Terraform provider lock file
+**/*.tfstate             # Ignore Terraform state files
+**/*.tfstate.backup      # Ignore Terraform state backup files
+**/*.tfvars              # Ignore Terraform variables (may contain secrets)
+**/*.tfvars.json         # Ignore JSON Terraform variables
+**/terraform.tfstate.d/  # Ignore Terraform state sub-directory
+
+# ================================
+# 🔹 AWS-sensitive files
+# ================================
+**/*.pem                 # Ignore private keys
+**/*.key                 # Ignore any SSH key files
+**/*.crt                 # Ignore certificate files
+**/instance-keypair.pem  # Ignore specific AWS keypair file
+**/*.secrets             # Ignore secret configuration files
+
+# ================================
+# 🔹 Logs and crash reports
+# ================================
+**/*.log                 # Ignore all logs
+**/crash.log             # Ignore Terraform crash logs
+**/*.bak                 # Ignore backup files
+**/*.backup              # Ignore additional backup files
+
+# ================================
+# 🔹 IDE and OS-generated files
+# ================================
+.vscode/                 # VS Code settings
+.idea/                   # JetBrains/IntelliJ IDEA project files
+*.iml                    # IntelliJ module files
+*.swp                    # Swap files (e.g., Vim)
+*.swo                    # Swap files (e.g., Vim)
+.DS_Store                # macOS Finder metadata
+Thumbs.db                # Windows thumbnail cache
+
+# ================================
+# 🔹 DevOps Tools - Optional
+# ================================
+node_modules/            # Ignore Node.js dependencies (if any scripts use Node.js)
+package-lock.json        # Ignore package lock files
+
+# ================================
+# 🔹 Project-Specific Ignored Folders
+# ================================
+.qodo/                   # Ignore Qodo-related files
+Images and Video/        # Ignore images and video assets
+AWS Infra/**/*.bak       # Ignore unnecessary backup files in AWS Infra
+AWS Infra/**/*.old       # Ignore old backup files
+AWS Infra/**/*.log       # Ignore log files in AWS Infra
+

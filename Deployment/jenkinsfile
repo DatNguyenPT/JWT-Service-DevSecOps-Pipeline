@@ -1,0 +1,170 @@
+pipeline {
+    agent any
+
+    tools {
+        jdk 'jdk-17'
+        maven 'maven3'
+    }
+
+    parameters {
+        choice(name: 'MIGRATE_DB', choices: ['yes', 'no'], description: 'Do you want to run database migration?')
+    }
+
+    environment {
+        IMAGE_NAME = "danny2810/jwt_service"
+        IMAGE_TAG = "latest"
+    }
+
+    stages { 
+
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Checkout from Git') {
+            steps {
+                git branch: 'jwt_service', url: 'https://github.com/DatNguyenPT/AI-Image-Generator.git', credentialsId: 'github_creds'
+            }
+        }
+
+        stage('Trivy FS Scan') {
+            steps {
+                sh "trivy fs . > trivyfs.txt"
+            }
+        }
+
+        stage('Docker Build & Push') {
+            steps {
+                script {
+                    withDockerRegistry([credentialsId: 'docker']) {   
+                        sh "docker system prune -af"
+                        sh """
+                        docker build --no-cache --build-arg PROFILE=cicd -t $IMAGE_NAME:$IMAGE_TAG .
+                        docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:$IMAGE_TAG
+                        docker push $IMAGE_NAME:$IMAGE_TAG
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Trivy Image Scan') {
+            steps {
+                sh "trivy image $IMAGE_NAME:$IMAGE_TAG > trivyimage.txt"
+            }
+        }
+
+        stage('Database Migration') {
+            when {
+                expression { params.MIGRATE_DB == 'yes' }
+            }
+            steps {
+                script {
+                    withCredentials([
+                        string(credentialsId: 'rds_endpoint', variable: 'RDS_ENDPOINT'),
+                        string(credentialsId: 'database_user', variable: 'DB_USER'),
+                        string(credentialsId: 'database_password', variable: 'DB_PASSWORD'),
+                        string(credentialsId: 'telegram_chat_id', variable: 'CHAT_ID'),
+                        string(credentialsId: 'telegram_bot_id', variable: 'BOT_ID')
+                    ]) {
+                        echo "Running database migrations..."
+                        try {
+                            sh '''
+                            export PGPASSWORD=$DB_PASSWORD
+                            psql -h $RDS_ENDPOINT -U $DB_USER -d image_generator -f migrations.sql
+                            '''
+                            echo "Database migration completed successfully!"
+
+                            sh '''
+                            curl -X POST -H "Content-Type: application/json" \
+                            -d '{"chat_id": "'${CHAT_ID}'", "text": "[✅SUCCESS] Database Migration completed successfully!", "disable_notification": false}' \
+                            "https://api.telegram.org/bot${BOT_ID}/sendMessage"
+                            '''
+                        } catch (Exception e) {
+                            echo "Database migration failed!"
+
+                            sh '''
+                            curl -X POST -H "Content-Type: application/json" \
+                            -d '{"chat_id": "'${CHAT_ID}'", "text": "[💀FAILED] Database Migration failed!", "disable_notification": false}' \
+                            "https://api.telegram.org/bot${BOT_ID}/sendMessage"
+                            '''
+                            error "Stopping pipeline due to migration failure"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Container') {
+            steps {
+                script {
+                    withCredentials([
+                        string(credentialsId: 'rds_endpoint', variable: 'RDS_ENDPOINT'),
+                        string(credentialsId: 'redis_url', variable: 'REDIS_URL'),
+                        string(credentialsId: 'database_user', variable: 'DB_USER'),
+                        string(credentialsId: 'database_password', variable: 'DB_PASSWORD'),
+                        string(credentialsId: 'telegram_chat_id', variable: 'CHAT_ID'),
+                        string(credentialsId: 'telegram_bot_id', variable: 'BOT_ID')
+                    ]) {
+                        try {
+                            sh '''
+                            docker run -d --name jwt_service \
+                                --network host \
+                                -e SPRING_PROFILES_ACTIVE=cicd \
+                                -p 8081:80 $IMAGE_NAME:$IMAGE_TAG
+                            '''
+                            echo "Deployment successful!"
+
+                            sh '''
+                            curl -X POST -H "Content-Type: application/json" \
+                            -d '{"chat_id": "'${CHAT_ID}'", "text": "[🚀DEPLOYED] JWT API successfully deployed!", "disable_notification": false}' \
+                            "https://api.telegram.org/bot${BOT_ID}/sendMessage"
+                            '''
+                        } catch (Exception e) {
+                            echo "Deployment failed!"
+
+                            sh '''
+                            curl -X POST -H "Content-Type: application/json" \
+                            -d '{"chat_id": "'${CHAT_ID}'", "text": "[💀FAILED] Deployment failed!", "disable_notification": false}' \
+                            "https://api.telegram.org/bot${BOT_ID}/sendMessage"
+                            '''
+                            error "Stopping pipeline due to deployment failure"
+                        }
+                    }
+                }
+            }
+        }
+    }
+    post {
+        success {
+            script {
+                withCredentials([
+                    string(credentialsId: 'telegram_chat_id', variable: 'CHAT_ID'),
+                    string(credentialsId: 'telegram_bot_id', variable: 'BOT_ID')
+                ]) {
+                    sh '''
+                    curl -X POST -H "Content-Type: application/json" \
+                    -d '{"chat_id": "'${CHAT_ID}'", "text": "[✅SUCCESS] JWT API Pipeline for deployment build succeeded 🎉", "disable_notification": false}' \
+                    "https://api.telegram.org/bot${BOT_ID}/sendMessage"
+                    '''
+                }
+            }
+        }
+        failure {
+            script {
+                withCredentials([
+                    string(credentialsId: 'telegram_chat_id', variable: 'CHAT_ID'),
+                    string(credentialsId: 'telegram_bot_id', variable: 'BOT_ID')
+                ]) {
+                    sh '''
+                    curl -X POST -H "Content-Type: application/json" \
+                    -d '{"chat_id": "'${CHAT_ID}'", "text": "[💀FAILED] JWT API Pipeline for deployment build failed 😭😭😭!", "disable_notification": false}' \
+                    "https://api.telegram.org/bot${BOT_ID}/sendMessage"
+                    '''
+                }
+            }
+        }
+    }
+}
