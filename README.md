@@ -27,29 +27,19 @@ Integrate SonarQube into the Jenkins pipeline using a token-based credential. Ad
 Deploy the Datadog Agent as a Docker container to collect logs and metrics from all Docker containers within the same Docker socket.
 Configure Prometheus to scrape metrics from 5 instances and Jenkins's work, which is exposed via the Prometheus plugin.
 
-
-
 ## SCREENSHOTS
 
-![Build Stages](https://github.com/DatNguyenPT/JWT-Pipeline-Screenshots/blob/main/Build%20Stage%20trong%20pipeline.png?raw=true)
+![Build Stage trong pipeline](https://github.com/user-attachments/assets/c885e32f-2a07-41a9-ba04-08d1551e7e9f)
 
-![Low Code Coverage](https://github.com/DatNguyenPT/JWT-Pipeline-Screenshots/blob/main/Code%20ch%C6%B0a%20ho%C3%A0n%20thi%E1%BB%87n%20t%E1%BB%91t.png?raw=true)
+![Low Code Coverage](https://github.com/user-attachments/assets/66f617db-531c-483b-b65d-95b7c6263eee)
 
-![DAST](https://github.com/DatNguyenPT/JWT-Pipeline-Screenshots/blob/main/DAST.png?raw=true)
+![DAST](https://github.com/user-attachments/assets/bd6c639b-3f81-4455-9d90-8509a2799a63)
 
-![Sonarqube](https://github.com/DatNguyenPT/Netflix-Clone-DevSecOps-Pipeline/blob/master/Screenshot%202025-02-13%20201445.png?raw=true) 
+![Tele notifications](https://github.com/user-attachments/assets/39b1aa19-d214-4bbf-9e12-dfbf185018b7)
 
-![Telegram Notifications](https://github.com/DatNguyenPT/JWT-Pipeline-Screenshots/blob/main/Tele%20noti.png?raw=true) 
+![Monitoring](https://github.com/user-attachments/assets/4db799cc-224f-4cc1-99be-6c114bdb49b0)
 
-![Monitoring](https://github.com/DatNguyenPT/JWT-Pipeline-Screenshots/blob/main/Gi%C3%A1m%20s%C3%A1t%20c%C3%A1c%20instance.png?raw=true) 
-
-
-![SWAGGER UI](https://github.com/DatNguyenPT/JWT-Pipeline-Screenshots/blob/main/API%20Document%20%C4%91%C6%B0%E1%BB%A3c%20deploy%20th%C3%A0nh%20c%C3%B4ng.png?raw=true)
-
-
-
-
-
+![SWAGGER UI](https://github.com/user-attachments/assets/19b17104-a13b-4896-a52f-5401840c9622)
 
 
 ## Authors
